@@ -64,8 +64,8 @@
     .day-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 0.72rem; font-weight: 600; touch-action: manipulation; }
     .day-btn.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
 
-    .now-line { position: absolute; left: 0; right: 0; height: 2px; background: #e74c3c; z-index: 7; pointer-events: none; }
-    .now-line::before { content: ''; position: absolute; left: -1px; top: -4px; width: 8px; height: 8px; background: #e74c3c; border-radius: 50%; }
+    .now-line { position: absolute; left: 0; right: 0; height: 3px; background: #e74c3c; z-index: 7; pointer-events: none; box-shadow: 0 0 4px rgba(231,76,60,0.5); }
+    .now-line::before { content: ''; position: absolute; left: -2px; top: -5px; width: 11px; height: 11px; background: #e74c3c; border-radius: 50%; }
 
     .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
     .swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; touch-action: manipulation; transition: transform 0.1s; }
@@ -237,7 +237,9 @@ const START_HOUR = 6, END_HOUR = 24;
 const HOURS = END_HOUR - START_HOUR;
 function getPxPerHour() {
   const wrap = document.querySelector('.calendar-wrap');
-  const available = wrap ? wrap.clientHeight : (window.innerHeight - 110);
+  const hdr = document.querySelector('.day-header');
+  const hdrH = hdr ? hdr.offsetHeight : 46;
+  const available = wrap ? (wrap.clientHeight - hdrH) : (window.innerHeight - 150);
   return Math.floor(available / HOURS);
 }
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
