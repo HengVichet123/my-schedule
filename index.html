@@ -23,12 +23,12 @@
     }
     header h1 { font-size: 1rem; font-weight: 600; flex: 1; }
     .week-nav { display: flex; align-items: center; gap: 6px; }
-    .week-nav button { background: rgba(255,255,255,0.15); border: none; color: white; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    .week-nav button { background: rgba(255,255,255,0.15); border: none; color: white; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; touch-action: manipulation; }
     .week-label { font-size: 0.75rem; min-width: 130px; text-align: center; }
     .week-nav .today-btn { font-size: 0.7rem; padding: 4px 8px; }
 
     .toolbar { background: #1a1a2e; padding: 0 16px 10px; display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
-    .toolbar button { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 500; background: rgba(255,255,255,0.15); color: white; }
+    .toolbar button { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 500; background: rgba(255,255,255,0.15); color: white; touch-action: manipulation; }
     .toolbar button:hover { background: rgba(255,255,255,0.25); }
 
     .calendar-wrap { flex: 1; overflow-x: auto; overflow-y: hidden; min-height: 0; }
@@ -77,9 +77,10 @@
     .form-row { display: flex; gap: 8px; }
     .form-row .form-group { flex: 1; }
     .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
-    .btn-outline { background: white; border: 1px solid #ddd; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
-    .btn-save { background: #1a1a2e; color: white; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; }
-    .btn-danger { background: #fee; color: #e74c3c; border: 1px solid #fcc; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+    .btn-outline { background: white; border: 1px solid #ddd; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; touch-action: manipulation; }
+    .btn-save { background: #1a1a2e; color: white; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; touch-action: manipulation; }
+    .btn-danger { background: #fee; color: #e74c3c; border: 1px solid #fcc; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; touch-action: manipulation; }
+    .btn-danger.confirming { background: #e74c3c; color: white; border-color: #c0392b; }
 
     /* Upload */
     .upload-area { border: 2px dashed #ccc; border-radius: 10px; padding: 24px; text-align: center; cursor: pointer; margin-bottom: 10px; }
@@ -299,13 +300,29 @@ function saveEntry() {
   save(); closeModal('add-modal'); render();
 }
 
+let deleteConfirmTimer = null;
 function deleteCurrentEntry() {
-  if (!confirm('Delete?')) return;
+  const btn = document.getElementById('delete-btn');
+  if (!btn.classList.contains('confirming')) {
+    btn.classList.add('confirming');
+    btn.textContent = 'Tap again to delete';
+    clearTimeout(deleteConfirmTimer);
+    deleteConfirmTimer = setTimeout(() => {
+      btn.classList.remove('confirming');
+      btn.textContent = 'Delete';
+    }, 3000);
+    return;
+  }
+  clearTimeout(deleteConfirmTimer);
   entries = entries.filter(x => x.id !== editingId);
   save(); closeModal('add-modal'); render();
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  const btn = document.getElementById('delete-btn');
+  if (btn) { btn.classList.remove('confirming'); btn.textContent = 'Delete'; clearTimeout(deleteConfirmTimer); }
+}
 
 function openUploadModal() {
   document.getElementById('extracted-results').innerHTML = '';
