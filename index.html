@@ -17,19 +17,16 @@
 
     header {
       background: #1a1a2e; color: white;
-      padding: 12px 16px;
-      padding-top: max(12px, env(safe-area-inset-top));
-      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+      padding: 8px 12px;
+      padding-top: max(8px, env(safe-area-inset-top));
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
     }
-    header h1 { font-size: 1rem; font-weight: 600; flex: 1; }
-    .week-nav { display: flex; align-items: center; gap: 6px; }
+    .week-nav { display: flex; align-items: center; gap: 4px; flex: 1; }
     .week-nav button { background: rgba(255,255,255,0.15); border: none; color: white; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; touch-action: manipulation; }
-    .week-label { font-size: 0.75rem; min-width: 130px; text-align: center; }
-    .week-nav .today-btn { font-size: 0.7rem; padding: 4px 8px; }
-
-    .toolbar { background: #1a1a2e; padding: 0 16px 10px; display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
-    .toolbar button { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 500; background: rgba(255,255,255,0.15); color: white; touch-action: manipulation; }
-    .toolbar button:hover { background: rgba(255,255,255,0.25); }
+    .week-label { font-size: 0.72rem; flex: 1; text-align: center; }
+    .hdr-actions { display: flex; gap: 4px; }
+    .hdr-btn { background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; touch-action: manipulation; }
+    .hdr-btn:hover { background: rgba(255,255,255,0.28); }
 
     .calendar-wrap { flex: 1; overflow-x: auto; overflow-y: hidden; min-height: 0; }
     .calendar {
@@ -62,6 +59,10 @@
     }
     .shift-block .shift-time { font-size: 0.62rem; opacity: 0.85; }
     .shift-block .shift-label { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .repeat-days { display: flex; gap: 5px; margin-top: 4px; }
+    .day-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 0.72rem; font-weight: 600; touch-action: manipulation; }
+    .day-btn.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
 
     .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
     .swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; touch-action: manipulation; transition: transform 0.1s; }
@@ -100,21 +101,18 @@
 <body>
 
 <header>
-  <h1>My Schedule</h1>
   <div class="week-nav">
     <button onclick="changeWeek(-1)">&#8592;</button>
     <span class="week-label" id="week-label"></span>
     <button onclick="changeWeek(1)">&#8594;</button>
-    <button class="today-btn" onclick="goToday()">Today</button>
+  </div>
+  <div class="hdr-actions">
+    <button class="hdr-btn" title="Add entry" onclick="openAddModal()">＋</button>
+    <button class="hdr-btn" title="Read shift photo" onclick="openUploadModal()">📷</button>
+    <button class="hdr-btn" title="Sync school schedule" onclick="syncFromGitHub('school')">🎓</button>
+    <button class="hdr-btn" title="Sync shifts" onclick="syncFromGitHub('shifts')">🔄</button>
   </div>
 </header>
-
-<div class="toolbar">
-  <button onclick="openAddModal()">+ Add</button>
-  <button onclick="openUploadModal()">📷 Shift Photo</button>
-  <button onclick="syncFromGitHub('school')">☁️ Sync School</button>
-  <button onclick="syncFromGitHub('shifts')">☁️ Sync Shifts</button>
-</div>
 
 <div class="calendar-wrap">
   <div class="calendar" id="calendar-wrap"></div>
@@ -146,6 +144,26 @@
       </div>
     </div>
     <input type="hidden" id="input-type" value="shift">
+    <div class="form-group" id="repeat-toggle-row">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="input-repeat" onchange="toggleRepeat()" style="width:auto;margin:0"> Repeat weekly
+      </label>
+    </div>
+    <div id="repeat-options" style="display:none">
+      <div class="form-group">
+        <label>Days</label>
+        <div class="repeat-days">
+          <button type="button" class="day-btn" data-day="1" onclick="toggleDay(1)">M</button>
+          <button type="button" class="day-btn" data-day="2" onclick="toggleDay(2)">T</button>
+          <button type="button" class="day-btn" data-day="3" onclick="toggleDay(3)">W</button>
+          <button type="button" class="day-btn" data-day="4" onclick="toggleDay(4)">T</button>
+          <button type="button" class="day-btn" data-day="5" onclick="toggleDay(5)">F</button>
+          <button type="button" class="day-btn" data-day="6" onclick="toggleDay(6)">S</button>
+          <button type="button" class="day-btn" data-day="0" onclick="toggleDay(0)">S</button>
+        </div>
+      </div>
+      <div class="form-group"><label>Until</label><input type="date" id="input-repeat-until"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn-danger" id="delete-btn" style="display:none" onclick="deleteCurrentEntry()">Delete</button>
       <button class="btn-outline" onclick="closeModal('add-modal')">Cancel</button>
@@ -198,11 +216,26 @@ function getPxPerHour() {
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const COLORS = ['#4a6cf7','#27ae60','#e74c3c','#e67e22','#f1c40f','#9b59b6','#1abc9c','#e91e63','#607d8b'];
 const DARK = {'#4a6cf7':'#2a4cd7','#27ae60':'#1e8449','#e74c3c':'#c0392b','#e67e22':'#ca6f1e','#f1c40f':'#d4ac0d','#9b59b6':'#7d3c98','#1abc9c':'#148f77','#e91e63':'#c2185b','#607d8b':'#455a64'};
-let entries = [], editingId = null, weekOffset = 0;
+let entries = [], editingId = null, weekOffset = 0, repeatDays = new Set();
 
 function selectSwatch(el) {
   document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
   el.classList.add('selected');
+}
+
+function toggleDay(day) {
+  if (repeatDays.has(day)) repeatDays.delete(day); else repeatDays.add(day);
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', repeatDays.has(+b.dataset.day)));
+}
+
+function toggleRepeat() {
+  const on = document.getElementById('input-repeat').checked;
+  document.getElementById('repeat-options').style.display = on ? 'block' : 'none';
+  if (on) {
+    const dateVal = document.getElementById('input-date').value;
+    repeatDays = new Set(dateVal ? [new Date(dateVal + 'T00:00:00').getDay()] : []);
+    document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', repeatDays.has(+b.dataset.day)));
+  }
 }
 
 // Storage
@@ -288,6 +321,13 @@ function setSwatchColor(color) {
   swatches.forEach(s => s.classList.toggle('selected', s.dataset.color === color));
 }
 
+function resetRepeat() {
+  document.getElementById('input-repeat').checked = false;
+  document.getElementById('repeat-options').style.display = 'none';
+  repeatDays = new Set();
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+}
+
 function openAddModal(dateStr) {
   editingId = null;
   document.getElementById('modal-title').textContent = 'Add Entry';
@@ -297,6 +337,8 @@ function openAddModal(dateStr) {
   document.getElementById('input-end').value = '';
   document.getElementById('input-label').value = '';
   setSwatchColor('#4a6cf7');
+  document.getElementById('repeat-toggle-row').style.display = 'block';
+  resetRepeat();
   document.getElementById('add-modal').classList.add('open');
 }
 
@@ -311,6 +353,8 @@ function editEntry(id) {
   document.getElementById('input-label').value = e.label || '';
   const color = e.color || (e.type === 'class' ? '#27ae60' : '#4a6cf7');
   setSwatchColor(color);
+  document.getElementById('repeat-toggle-row').style.display = 'none';
+  resetRepeat();
   document.getElementById('add-modal').classList.add('open');
 }
 
@@ -325,7 +369,22 @@ function saveEntry() {
     color: selected ? selected.dataset.color : '#4a6cf7'
   };
   if (!data.date || !data.start || !data.end) return alert('Fill all fields.');
-  if (editingId) {
+
+  const isRepeat = document.getElementById('input-repeat').checked;
+  if (isRepeat) {
+    const untilVal = document.getElementById('input-repeat-until').value;
+    if (!untilVal) return alert('Set an end date for repeat.');
+    if (repeatDays.size === 0) return alert('Select at least one day.');
+    const cur = new Date(data.date + 'T00:00:00');
+    const end = new Date(untilVal + 'T00:00:00');
+    let count = 0;
+    while (cur <= end) {
+      if (repeatDays.has(cur.getDay())) {
+        entries.push({ ...data, date: toDateStr(cur), id: Date.now().toString() + (count++) });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  } else if (editingId) {
     const i = entries.findIndex(x => x.id === editingId);
     if (i >= 0) entries[i] = { ...entries[i], ...data };
   } else {
