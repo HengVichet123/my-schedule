@@ -129,11 +129,9 @@
       <div class="form-group"><label>End</label><input type="time" id="input-end"></div>
     </div>
     <div class="form-group"><label>Label</label><input type="text" id="input-label" placeholder="Class name, shift location..."></div>
-    <div class="form-group">
+    <div class="form-group" id="color-group">
       <label>Color</label>
       <div class="color-swatches" id="color-swatches">
-        <div class="swatch" style="background:#4a6cf7" data-color="#4a6cf7" onclick="selectSwatch(this)"></div>
-        <div class="swatch" style="background:#27ae60" data-color="#27ae60" onclick="selectSwatch(this)"></div>
         <div class="swatch" style="background:#e74c3c" data-color="#e74c3c" onclick="selectSwatch(this)"></div>
         <div class="swatch" style="background:#e67e22" data-color="#e67e22" onclick="selectSwatch(this)"></div>
         <div class="swatch" style="background:#f1c40f" data-color="#f1c40f" onclick="selectSwatch(this)"></div>
@@ -163,6 +161,11 @@
         </div>
       </div>
       <div class="form-group"><label>Until</label><input type="date" id="input-repeat-until"></div>
+    </div>
+    <div class="form-group" id="apply-all-row" style="display:none">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="apply-all-chk" style="width:auto;margin:0"> Apply changes to all in series
+      </label>
     </div>
     <div class="modal-actions">
       <button class="btn-danger" id="delete-btn" style="display:none" onclick="deleteCurrentEntry()">Delete</button>
@@ -336,8 +339,10 @@ function openAddModal(dateStr) {
   document.getElementById('input-start').value = '';
   document.getElementById('input-end').value = '';
   document.getElementById('input-label').value = '';
-  setSwatchColor('#4a6cf7');
+  setSwatchColor('#e67e22');
   document.getElementById('repeat-toggle-row').style.display = 'block';
+  document.getElementById('apply-all-row').style.display = 'none';
+  document.getElementById('color-group').style.display = 'block';
   resetRepeat();
   document.getElementById('add-modal').classList.add('open');
 }
@@ -351,10 +356,14 @@ function editEntry(id) {
   document.getElementById('input-start').value = e.start;
   document.getElementById('input-end').value = e.end;
   document.getElementById('input-label').value = e.label || '';
-  const color = e.color || (e.type === 'class' ? '#27ae60' : '#4a6cf7');
-  setSwatchColor(color);
+  const isSystem = e.type === 'shift' || e.type === 'class';
+  document.getElementById('color-group').style.display = isSystem ? 'none' : 'block';
+  if (!isSystem) setSwatchColor(e.color || '#e67e22');
   document.getElementById('repeat-toggle-row').style.display = 'none';
   resetRepeat();
+  const hasGroup = !!e.groupId;
+  document.getElementById('apply-all-row').style.display = hasGroup ? 'block' : 'none';
+  document.getElementById('apply-all-chk').checked = false;
   document.getElementById('add-modal').classList.add('open');
 }
 
@@ -378,15 +387,23 @@ function saveEntry() {
     const cur = new Date(data.date + 'T00:00:00');
     const end = new Date(untilVal + 'T00:00:00');
     let count = 0;
+    const groupId = Date.now().toString();
     while (cur <= end) {
       if (repeatDays.has(cur.getDay())) {
-        entries.push({ ...data, date: toDateStr(cur), id: Date.now().toString() + (count++) });
+        entries.push({ ...data, date: toDateStr(cur), id: groupId + (count++), groupId });
       }
       cur.setDate(cur.getDate() + 1);
     }
   } else if (editingId) {
-    const i = entries.findIndex(x => x.id === editingId);
-    if (i >= 0) entries[i] = { ...entries[i], ...data };
+    const applyAll = document.getElementById('apply-all-chk')?.checked;
+    const existing = entries.find(x => x.id === editingId);
+    if (applyAll && existing?.groupId) {
+      const gid = existing.groupId;
+      entries = entries.map(x => x.groupId === gid ? { ...x, ...data, date: x.date, id: x.id, groupId: gid } : x);
+    } else {
+      const i = entries.findIndex(x => x.id === editingId);
+      if (i >= 0) entries[i] = { ...entries[i], ...data };
+    }
   } else {
     data.id = Date.now().toString();
     entries.push(data);
