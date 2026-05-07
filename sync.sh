@@ -1,11 +1,12 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-# Copy latest school data
+# Copy latest data
 cp ../shift-timetable/school_shifts.json ./school_shifts.json
+cp ../shift-timetable/shifts.json ./shifts.json
 
 # Push to GitHub
-git add school_shifts.json
+git add school_shifts.json shifts.json
 git commit -m "Sync school data" --allow-empty
 git push
 

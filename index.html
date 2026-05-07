@@ -101,7 +101,8 @@
 <div class="toolbar">
   <button onclick="openAddModal()">+ Add</button>
   <button onclick="openUploadModal()">📷 Shift Photo</button>
-  <button onclick="syncFromGitHub()">☁️ Sync School</button>
+  <button onclick="syncFromGitHub('school')">☁️ Sync School</button>
+  <button onclick="syncFromGitHub('shifts')">☁️ Sync Shifts</button>
 </div>
 
 <div class="calendar-wrap">
@@ -335,18 +336,20 @@ function addExtracted() {
   save(); render(); closeModal('upload-modal');
 }
 
-async function syncFromGitHub() {
+async function syncFromGitHub(type) {
+  const file = type === 'school' ? 'school_shifts.json' : 'shifts.json';
+  const label = type === 'school' ? 'class' : 'shift';
   try {
-    const res = await fetch('https://HengVichet123.github.io/my-schedule/school_shifts.json?t=' + Date.now());
+    const res = await fetch(`https://HengVichet123.github.io/my-schedule/${file}?t=` + Date.now());
     if (!res.ok) throw new Error('Not found');
     const data = await res.json();
     const existing = new Set(entries.map(e => e.id));
     let added = 0;
     data.forEach(s => { if (!existing.has(s.id)) { entries.push(s); added++; } });
     save(); render();
-    alert(`Synced! Added ${added} class entries.`);
-  } catch (e) {
-    alert('Sync failed. Make sure you ran sync.sh on your computer first.');
+    alert(`Synced! Added ${added} ${label} entries.`);
+  } catch {
+    alert('Sync failed. Run sync.sh on your computer first.');
   }
 }
 
