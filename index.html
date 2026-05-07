@@ -202,14 +202,16 @@
     <h2>Settings</h2>
     <div class="form-group">
       <label>GitHub Token (for two-way shift sync)</label>
-      <input type="password" id="input-token" placeholder="ghp_xxxxxxxxxxxx">
-      <p style="font-size:0.75rem;color:#999;margin-top:4px">Create at GitHub → Settings → Developer settings → Personal access tokens → Fine-grained → Contents: Read & Write for my-schedule repo.</p>
+      <input type="password" id="input-token" placeholder="github_pat_xxxxxxxxxxxx">
+      <p style="font-size:0.75rem;color:#999;margin-top:4px">GitHub → Settings → Developer settings → Personal access tokens → Fine-grained → Contents: Read &amp; Write for my-schedule repo.</p>
     </div>
-    <div class="modal-actions">
+    <div class="modal-actions" style="margin-bottom:16px">
       <button class="btn-danger" onclick="clearToken()">Clear token</button>
       <button class="btn-outline" onclick="closeModal('settings-modal')">Cancel</button>
       <button class="btn-save" onclick="saveToken()">Save</button>
     </div>
+    <p style="font-size:0.8rem;font-weight:600;margin-bottom:8px">Backups <span style="font-weight:400;color:#999">(auto-saved before each sync)</span></p>
+    <div id="backup-list" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px"></div>
   </div>
 </div>
 
@@ -263,6 +265,22 @@ function toggleRepeat() {
 // Storage
 function load() { try { entries = JSON.parse(localStorage.getItem('schedule') || '[]'); } catch { entries = []; } }
 function save() { localStorage.setItem('schedule', JSON.stringify(entries)); }
+
+function saveBackup(reason) {
+  const backups = JSON.parse(localStorage.getItem('backups') || '[]');
+  backups.unshift({ time: Date.now(), reason, data: JSON.parse(localStorage.getItem('schedule') || '[]') });
+  localStorage.setItem('backups', JSON.stringify(backups.slice(0, 10)));
+}
+function getBackups() { return JSON.parse(localStorage.getItem('backups') || '[]'); }
+function restoreBackup(index) {
+  const backups = getBackups();
+  if (!backups[index]) return;
+  saveBackup('before restore');
+  entries = backups[index].data;
+  save(); render(); closeModal('settings-modal');
+  alert('Restored!');
+}
+
 load();
 
 function toDateStr(d) {
@@ -546,6 +564,20 @@ function toBase64(str) {
 function openSettings() {
   const token = localStorage.getItem('gh_token') || '';
   document.getElementById('input-token').value = token ? '••••••••' : '';
+  const backups = getBackups();
+  const list = document.getElementById('backup-list');
+  if (!backups.length) {
+    list.innerHTML = '<p style="padding:10px;font-size:0.78rem;color:#999">No backups yet.</p>';
+  } else {
+    list.innerHTML = backups.map((b, i) => {
+      const d = new Date(b.time);
+      const timeStr = d.toLocaleDateString('en',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'});
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:0.78rem">
+        <span><b>${timeStr}</b> <span style="color:#999">${b.reason} · ${b.data.length} entries</span></span>
+        <button class="btn-outline" style="padding:4px 10px;font-size:0.72rem;touch-action:manipulation" onclick="restoreBackup(${i})">Restore</button>
+      </div>`;
+    }).join('');
+  }
   document.getElementById('settings-modal').classList.add('open');
 }
 function saveToken() {
@@ -564,6 +596,7 @@ async function syncFromGitHub(type) {
   const file = type === 'school' ? 'school_shifts.json' : 'shifts.json';
   const label = type === 'school' ? 'class' : 'shift';
   const token = type === 'shifts' ? localStorage.getItem('gh_token') : null;
+  saveBackup(`before ${type} sync`);
 
   try {
     if (token) {
