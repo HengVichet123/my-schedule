@@ -414,9 +414,12 @@ function saveEntry() {
 let deleteConfirmTimer = null;
 function deleteCurrentEntry() {
   const btn = document.getElementById('delete-btn');
+  const applyAll = document.getElementById('apply-all-chk')?.checked;
+  const existing = entries.find(x => x.id === editingId);
+  const label = applyAll && existing?.groupId ? 'Tap again to delete ALL' : 'Tap again to delete';
   if (!btn.classList.contains('confirming')) {
     btn.classList.add('confirming');
-    btn.textContent = 'Tap again to delete';
+    btn.textContent = label;
     clearTimeout(deleteConfirmTimer);
     deleteConfirmTimer = setTimeout(() => {
       btn.classList.remove('confirming');
@@ -425,7 +428,11 @@ function deleteCurrentEntry() {
     return;
   }
   clearTimeout(deleteConfirmTimer);
-  entries = entries.filter(x => x.id !== editingId);
+  if (applyAll && existing?.groupId) {
+    entries = entries.filter(x => x.groupId !== existing.groupId);
+  } else {
+    entries = entries.filter(x => x.id !== editingId);
+  }
   save(); closeModal('add-modal'); render();
 }
 
