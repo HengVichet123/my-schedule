@@ -101,7 +101,7 @@
 <div class="toolbar">
   <button onclick="openAddModal()">+ Add</button>
   <button onclick="openUploadModal()">📷 Shift Photo</button>
-  <button onclick="importSchoolData()">🏫 Import School</button>
+  <button onclick="syncFromGitHub()">☁️ Sync School</button>
 </div>
 
 <div class="calendar-wrap">
@@ -335,17 +335,19 @@ function addExtracted() {
   save(); render(); closeModal('upload-modal');
 }
 
-function importSchoolData() { document.getElementById('school-modal').classList.add('open'); }
-
-function doImportSchool() {
+async function syncFromGitHub() {
   try {
-    const data = JSON.parse(document.getElementById('school-json').value);
+    const res = await fetch('https://HengVichet123.github.io/my-schedule/school_shifts.json?t=' + Date.now());
+    if (!res.ok) throw new Error('Not found');
+    const data = await res.json();
     const existing = new Set(entries.map(e => e.id));
     let added = 0;
     data.forEach(s => { if (!existing.has(s.id)) { entries.push(s); added++; } });
-    save(); render(); closeModal('school-modal');
-    alert(`Imported ${added} entries!`);
-  } catch { alert('Invalid JSON. Please check the data.'); }
+    save(); render();
+    alert(`Synced! Added ${added} class entries.`);
+  } catch (e) {
+    alert('Sync failed. Make sure you ran sync.sh on your computer first.');
+  }
 }
 
 document.querySelectorAll('.modal-overlay').forEach(el => {
