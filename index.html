@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="My Schedule">
   <meta name="theme-color" content="#1a1a2e">
   <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <link rel="apple-touch-icon" href="icon.png">
   <title>My Schedule</title>
   <style>
@@ -304,15 +305,43 @@ function openUploadModal() {
 
 async function handleUpload(e) {
   const file = e.target.files[0]; if (!file) return;
-  const formData = new FormData(); formData.append('image', file);
-  document.getElementById('extracted-results').innerHTML = '<p style="color:#888;font-size:0.85rem">Reading...</p>';
+  const container = document.getElementById('extracted-results');
+  container.innerHTML = '<p style="color:#888;font-size:0.85rem">Reading... please wait ⏳</p>';
   try {
-    const res = await fetch('/api/upload', { method: 'POST', body: formData });
-    const data = await res.json();
-    renderExtracted(data);
+    const { data: { text } } = await Tesseract.recognize(file, 'jpn+eng', {
+      logger: m => { if (m.status === 'recognizing text') container.innerHTML = `<p style="color:#888;font-size:0.85rem">Reading... ${Math.round(m.progress*100)}%</p>`; }
+    });
+    const shifts = parseShiftsFromText(text);
+    renderExtracted({ shifts, raw_text: text });
   } catch {
-    document.getElementById('extracted-results').innerHTML = '<p style="color:#e74c3c;font-size:0.85rem">Upload failed. Are you on your computer?</p>';
+    container.innerHTML = '<p style="color:#e74c3c;font-size:0.85rem">Failed to read image.</p>';
   }
+}
+
+function parseShiftsFromText(text) {
+  const shifts = [];
+  const year = new Date().getFullYear();
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const timeMatch = line.match(/(\d{2}):(\d{2})\s*[~〜>]\s*(\d{2}):(\d{2})/);
+    if (!timeMatch) continue;
+    const [, sh, sm, eh, em] = timeMatch;
+    let dateMatch = line.match(/(\d{1,2})[\/](\d{1,2})/);
+    if (!dateMatch) dateMatch = line.match(/(\d)7(\d{2})[(（]/);
+    if (!dateMatch) continue;
+    const [, month, day] = dateMatch;
+    const location = (lines[i+1] || '').trim().replace(/\s+/g, '');
+    shifts.push({
+      id: `${month}${day}${sh}${eh}${sm}`,
+      date: `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`,
+      start: `${sh}:${sm}`,
+      end: `${eh}:${em}`,
+      label: location && !/\d{2}:\d{2}/.test(location) ? location : '出勤',
+      type: 'shift'
+    });
+  }
+  return shifts;
 }
 
 function renderExtracted(data) {
