@@ -31,7 +31,7 @@
     .toolbar button { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 500; background: rgba(255,255,255,0.15); color: white; }
     .toolbar button:hover { background: rgba(255,255,255,0.25); }
 
-    .calendar-wrap { flex: 1; overflow: auto; }
+    .calendar-wrap { flex: 1; overflow-x: auto; overflow-y: hidden; min-height: 0; }
     .calendar {
       display: grid;
       grid-template-columns: 44px repeat(14, 1fr);
@@ -173,7 +173,8 @@
 const START_HOUR = 6, END_HOUR = 24;
 const HOURS = END_HOUR - START_HOUR;
 function getPxPerHour() {
-  const available = window.innerHeight - 110; // minus header+toolbar
+  const wrap = document.querySelector('.calendar-wrap');
+  const available = wrap ? wrap.clientHeight : (window.innerHeight - 110);
   return Math.floor(available / HOURS);
 }
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -397,7 +398,8 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
-window.addEventListener('resize', render);
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
 render();
 </script>
 </body>
