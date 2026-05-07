@@ -49,10 +49,10 @@
     .day-header.today .day-num { background: #1a1a2e; color: white; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; margin: 2px auto 0; font-size: 0.85rem; font-weight: 600; }
 
     .time-col { border-right: 1px solid #e0e0e0; background: white; }
-    .time-slot { height: 60px; padding: 2px 4px; font-size: 0.62rem; color: #999; text-align: right; border-bottom: 1px solid #f0f0f0; position: relative; top: -8px; }
+    .time-slot { padding: 2px 4px; font-size: 0.62rem; color: #999; text-align: right; border-bottom: 1px solid #f0f0f0; position: relative; top: -8px; }
 
     .day-col { position: relative; border-right: 1px solid #eee; background: white; }
-    .hour-row { height: 60px; border-bottom: 1px solid #f0f0f0; }
+    .hour-row { border-bottom: 1px solid #f0f0f0; }
 
     .shift-block {
       position: absolute; left: 1px; right: 1px;
@@ -170,7 +170,12 @@
 </div>
 
 <script>
-const START_HOUR = 6, END_HOUR = 24, PX_PER_HOUR = 60;
+const START_HOUR = 6, END_HOUR = 24;
+const HOURS = END_HOUR - START_HOUR;
+function getPxPerHour() {
+  const available = window.innerHeight - 110; // minus header+toolbar
+  return Math.floor(available / HOURS);
+}
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 let entries = [], editingId = null, weekOffset = 0;
 
@@ -216,26 +221,28 @@ function render() {
   });
 
   // Time col
+  const PPH2 = getPxPerHour();
   const timeCol = document.createElement('div'); timeCol.className = 'time-col';
   for (let h = START_HOUR; h < END_HOUR; h++) {
     const s = document.createElement('div'); s.className = 'time-slot';
+    s.style.height = `${PPH2}px`;
     s.textContent = `${h}:00`; timeCol.appendChild(s);
   }
   wrap.appendChild(timeCol);
 
   // Day columns
-  const hours = END_HOUR - START_HOUR;
+  const PPH = getPxPerHour();
   allDates.forEach(d => {
     const dateStr = toDateStr(d);
-    const col = document.createElement('div'); col.className = 'day-col'; col.style.height = `${hours * PX_PER_HOUR}px`;
-    for (let h = 0; h < hours; h++) { const r = document.createElement('div'); r.className = 'hour-row'; col.appendChild(r); }
+    const col = document.createElement('div'); col.className = 'day-col'; col.style.height = `${HOURS * PPH}px`;
+    for (let h = 0; h < HOURS; h++) { const r = document.createElement('div'); r.className = 'hour-row'; r.style.height = `${PPH}px`; col.appendChild(r); }
     entries.filter(e => e.date === dateStr).forEach(e => {
       const [sh, sm] = e.start.split(':').map(Number);
       const [eh, em] = e.end.split(':').map(Number);
       const startMin = (sh - START_HOUR) * 60 + sm;
       let endMin = (eh === 0 ? (24 - START_HOUR) * 60 : (eh - START_HOUR) * 60 + em);
-      const top = startMin * (PX_PER_HOUR / 60);
-      const height = Math.max((endMin - startMin) * (PX_PER_HOUR / 60), 20);
+      const top = startMin * (PPH / 60);
+      const height = Math.max((endMin - startMin) * (PPH / 60), 16);
       const block = document.createElement('div');
       block.className = `shift-block type-${e.type || 'shift'}`;
       block.style.top = `${top}px`; block.style.height = `${height}px`;
@@ -390,6 +397,7 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
+window.addEventListener('resize', render);
 render();
 </script>
 </body>
