@@ -64,6 +64,9 @@
     .day-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 0.72rem; font-weight: 600; touch-action: manipulation; }
     .day-btn.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
 
+    .now-line { position: absolute; left: 0; right: 0; height: 2px; background: #e74c3c; z-index: 7; pointer-events: none; }
+    .now-line::before { content: ''; position: absolute; left: -1px; top: -4px; width: 8px; height: 8px; background: #e74c3c; border-radius: 50%; }
+
     .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
     .swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; touch-action: manipulation; transition: transform 0.1s; }
     .swatch.selected { border-color: #333; transform: scale(1.2); }
@@ -352,8 +355,22 @@ function render() {
       block.onclick = () => editEntry(e.id);
       col.appendChild(block);
     });
+    if (dateStr === today) {
+      const line = document.createElement('div');
+      line.className = 'now-line';
+      col.appendChild(line);
+    }
     wrap.appendChild(col);
   });
+  updateNowLine();
+}
+
+function updateNowLine() {
+  const now = new Date();
+  const mins = (now.getHours() - START_HOUR) * 60 + now.getMinutes();
+  if (mins < 0 || mins > HOURS * 60) return;
+  const top = mins * (getPxPerHour() / 60);
+  document.querySelectorAll('.now-line').forEach(el => el.style.top = `${top}px`);
 }
 
 function setSwatchColor(color) {
@@ -641,6 +658,8 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+setInterval(updateNowLine, 30000);
 
 let resizeTimer;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
