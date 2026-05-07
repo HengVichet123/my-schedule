@@ -58,12 +58,19 @@
       position: absolute; left: 1px; right: 1px;
       border-radius: 5px; padding: 2px 4px;
       font-size: 0.68rem; cursor: pointer;
-      overflow: hidden; z-index: 5;
+      overflow: hidden; z-index: 5; color: white;
     }
-    .shift-block.type-shift { background: #4a6cf7; color: white; border-left: 3px solid #2a4cd7; }
-    .shift-block.type-class { background: #27ae60; color: white; border-left: 3px solid #1e8449; }
     .shift-block .shift-time { font-size: 0.62rem; opacity: 0.85; }
     .shift-block .shift-label { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+    .swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; touch-action: manipulation; transition: transform 0.1s; }
+    .swatch.selected { border-color: #333; transform: scale(1.2); }
+
+    .extracted-list { max-height: 180px; overflow-y: auto; margin: 8px 0; border: 1px solid #eee; border-radius: 8px; }
+    .extracted-item { display: flex; align-items: center; gap: 6px; padding: 5px 10px; font-size: 0.76rem; border-bottom: 1px solid #f0f0f0; }
+    .extracted-item:last-child { border-bottom: none; }
+    .extracted-item input[type=checkbox] { flex-shrink: 0; width: 16px; height: 16px; }
 
     /* Modal */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-end; justify-content: center; }
@@ -125,12 +132,20 @@
     </div>
     <div class="form-group"><label>Label</label><input type="text" id="input-label" placeholder="Class name, shift location..."></div>
     <div class="form-group">
-      <label>Type</label>
-      <select id="input-type">
-        <option value="shift">Shift (blue)</option>
-        <option value="class">Class (green)</option>
-      </select>
+      <label>Color</label>
+      <div class="color-swatches" id="color-swatches">
+        <div class="swatch" style="background:#4a6cf7" data-color="#4a6cf7" onclick="selectSwatch(this)"></div>
+        <div class="swatch" style="background:#27ae60" data-color="#27ae60" onclick="selectSwatch(this)"></div>
+        <div class="swatch" style="background:#e74c3c" data-color="#e74c3c" onclick="selectSwatch(this)"></div>
+        <div class="swatch" style="background:#e67e22" data-color="#e67e22" onclick="selectSwatch(this)"></div>
+        <div class="swatch" style="background:#f1c40f" data-color="#f1c40f" onclick="selectSwatch(this)"></div>
+        <div class="swatch" style="background:#9b59b6" data-color="#9b59b6" onclick="selectSwatch(this)"></div>
+        <div class="swatch" style="background:#1abc9c" data-color="#1abc9c" onclick="selectSwatch(this)"></div>
+        <div class="swatch" style="background:#e91e63" data-color="#e91e63" onclick="selectSwatch(this)"></div>
+        <div class="swatch" style="background:#607d8b" data-color="#607d8b" onclick="selectSwatch(this)"></div>
+      </div>
     </div>
+    <input type="hidden" id="input-type" value="shift">
     <div class="modal-actions">
       <button class="btn-danger" id="delete-btn" style="display:none" onclick="deleteCurrentEntry()">Delete</button>
       <button class="btn-outline" onclick="closeModal('add-modal')">Cancel</button>
@@ -145,13 +160,15 @@
     <div class="modal-handle"></div>
     <h2>Read Shift Screenshot</h2>
     <div class="upload-area" onclick="document.getElementById('file-input').click()">
-      <div style="font-size:2rem">📷</div>
-      <p>Tap to upload screenshot of your shift schedule</p>
+      <div style="font-size:1.5rem">📷</div>
+      <p>Tap to select screenshot</p>
     </div>
     <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleUpload(event)">
-    <div id="extracted-results"></div>
+    <div id="extracted-status"></div>
+    <div class="extracted-list" id="extracted-results" style="display:none"></div>
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal('upload-modal')">Close</button>
+      <button class="btn-save" id="add-extracted-btn" style="display:none" onclick="addExtracted()">Add All</button>
     </div>
   </div>
 </div>
@@ -179,7 +196,14 @@ function getPxPerHour() {
   return Math.floor(available / HOURS);
 }
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const COLORS = ['#4a6cf7','#27ae60','#e74c3c','#e67e22','#f1c40f','#9b59b6','#1abc9c','#e91e63','#607d8b'];
+const DARK = {'#4a6cf7':'#2a4cd7','#27ae60':'#1e8449','#e74c3c':'#c0392b','#e67e22':'#ca6f1e','#f1c40f':'#d4ac0d','#9b59b6':'#7d3c98','#1abc9c':'#148f77','#e91e63':'#c2185b','#607d8b':'#455a64'};
 let entries = [], editingId = null, weekOffset = 0;
+
+function selectSwatch(el) {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
 
 // Storage
 function load() { try { entries = JSON.parse(localStorage.getItem('schedule') || '[]'); } catch { entries = []; } }
@@ -246,7 +270,10 @@ function render() {
       const top = startMin * (PPH / 60);
       const height = Math.max((endMin - startMin) * (PPH / 60), 16);
       const block = document.createElement('div');
-      block.className = `shift-block type-${e.type || 'shift'}`;
+      block.className = 'shift-block';
+      const bg = e.color || (e.type === 'class' ? '#27ae60' : '#4a6cf7');
+      block.style.background = bg;
+      block.style.borderLeft = `3px solid ${DARK[bg] || bg}`;
       block.style.top = `${top}px`; block.style.height = `${height}px`;
       block.innerHTML = `<div class="shift-time">${e.start}–${e.end}</div><div class="shift-label">${e.label||''}</div>`;
       block.onclick = () => editEntry(e.id);
@@ -254,6 +281,11 @@ function render() {
     });
     wrap.appendChild(col);
   });
+}
+
+function setSwatchColor(color) {
+  const swatches = document.querySelectorAll('.swatch');
+  swatches.forEach(s => s.classList.toggle('selected', s.dataset.color === color));
 }
 
 function openAddModal(dateStr) {
@@ -264,7 +296,7 @@ function openAddModal(dateStr) {
   document.getElementById('input-start').value = '';
   document.getElementById('input-end').value = '';
   document.getElementById('input-label').value = '';
-  document.getElementById('input-type').value = 'shift';
+  setSwatchColor('#4a6cf7');
   document.getElementById('add-modal').classList.add('open');
 }
 
@@ -277,17 +309,20 @@ function editEntry(id) {
   document.getElementById('input-start').value = e.start;
   document.getElementById('input-end').value = e.end;
   document.getElementById('input-label').value = e.label || '';
-  document.getElementById('input-type').value = e.type || 'shift';
+  const color = e.color || (e.type === 'class' ? '#27ae60' : '#4a6cf7');
+  setSwatchColor(color);
   document.getElementById('add-modal').classList.add('open');
 }
 
 function saveEntry() {
+  const selected = document.querySelector('.swatch.selected');
   const data = {
     date: document.getElementById('input-date').value,
     start: document.getElementById('input-start').value,
     end: document.getElementById('input-end').value,
     label: document.getElementById('input-label').value,
-    type: document.getElementById('input-type').value
+    type: 'personal',
+    color: selected ? selected.dataset.color : '#4a6cf7'
   };
   if (!data.date || !data.start || !data.end) return alert('Fill all fields.');
   if (editingId) {
@@ -326,22 +361,25 @@ function closeModal(id) {
 
 function openUploadModal() {
   document.getElementById('extracted-results').innerHTML = '';
+  document.getElementById('extracted-results').style.display = 'none';
+  document.getElementById('extracted-status').innerHTML = '';
+  document.getElementById('add-extracted-btn').style.display = 'none';
   document.getElementById('file-input').value = '';
   document.getElementById('upload-modal').classList.add('open');
 }
 
 async function handleUpload(e) {
   const file = e.target.files[0]; if (!file) return;
-  const container = document.getElementById('extracted-results');
-  container.innerHTML = '<p style="color:#888;font-size:0.85rem">Reading... please wait ⏳</p>';
+  const status = document.getElementById('extracted-status');
+  status.innerHTML = '<p style="color:#888;font-size:0.85rem">Reading... ⏳</p>';
   try {
     const { data: { text } } = await Tesseract.recognize(file, 'jpn+eng', {
-      logger: m => { if (m.status === 'recognizing text') container.innerHTML = `<p style="color:#888;font-size:0.85rem">Reading... ${Math.round(m.progress*100)}%</p>`; }
+      logger: m => { if (m.status === 'recognizing text') status.innerHTML = `<p style="color:#888;font-size:0.85rem">Reading... ${Math.round(m.progress*100)}%</p>`; }
     });
     const shifts = parseShiftsFromText(text);
     renderExtracted({ shifts, raw_text: text });
   } catch {
-    container.innerHTML = '<p style="color:#e74c3c;font-size:0.85rem">Failed to read image.</p>';
+    status.innerHTML = '<p style="color:#e74c3c;font-size:0.85rem">Failed to read image.</p>';
   }
 }
 
@@ -372,13 +410,20 @@ function parseShiftsFromText(text) {
 }
 
 function renderExtracted(data) {
+  const status = document.getElementById('extracted-status');
   const container = document.getElementById('extracted-results');
-  if (!data.shifts?.length) { container.innerHTML = `<p style="color:#e74c3c;font-size:0.85rem">No shifts detected.</p>`; return; }
+  const addBtn = document.getElementById('add-extracted-btn');
+  if (!data.shifts?.length) {
+    status.innerHTML = '<p style="color:#e74c3c;font-size:0.85rem">No shifts detected.</p>';
+    container.style.display = 'none'; addBtn.style.display = 'none'; return;
+  }
   window._extracted = data.shifts;
-  container.innerHTML = `
-    <p style="font-size:0.82rem;color:#555;margin-bottom:8px">Found ${data.shifts.length} shifts:</p>
-    ${data.shifts.map((s,i) => `<div class="extracted-item"><input type="checkbox" id="chk-${i}" checked><span>${s.date} ${s.start}–${s.end} <span style="color:#999">${s.label}</span></span></div>`).join('')}
-    <button class="btn-save" style="margin-top:10px;width:100%;padding:8px" onclick="addExtracted()">Add All</button>`;
+  status.innerHTML = `<p style="font-size:0.8rem;color:#555;margin:6px 0 2px">Found ${data.shifts.length} shifts:</p>`;
+  container.style.display = 'block';
+  container.innerHTML = data.shifts.map((s,i) =>
+    `<div class="extracted-item"><input type="checkbox" id="chk-${i}" checked><span>${s.date} ${s.start}–${s.end} <span style="color:#999">${s.label}</span></span></div>`
+  ).join('');
+  addBtn.style.display = 'block';
 }
 
 function addExtracted() {
