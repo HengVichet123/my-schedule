@@ -111,6 +111,7 @@
     <button class="hdr-btn" title="Read shift photo" onclick="openUploadModal()">📷</button>
     <button class="hdr-btn" title="Sync school schedule" onclick="syncFromGitHub('school')">🎓</button>
     <button class="hdr-btn" title="Sync shifts" onclick="syncFromGitHub('shifts')">🔄</button>
+    <button class="hdr-btn" title="Settings" onclick="openSettings()">⚙️</button>
   </div>
 </header>
 
@@ -190,6 +191,24 @@
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal('upload-modal')">Close</button>
       <button class="btn-save" id="add-extracted-btn" style="display:none" onclick="addExtracted()">Add All</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Settings</h2>
+    <div class="form-group">
+      <label>GitHub Token (for two-way shift sync)</label>
+      <input type="password" id="input-token" placeholder="ghp_xxxxxxxxxxxx">
+      <p style="font-size:0.75rem;color:#999;margin-top:4px">Create at GitHub → Settings → Developer settings → Personal access tokens → Fine-grained → Contents: Read & Write for my-schedule repo.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="clearToken()">Clear token</button>
+      <button class="btn-outline" onclick="closeModal('settings-modal')">Cancel</button>
+      <button class="btn-save" onclick="saveToken()">Save</button>
     </div>
   </div>
 </div>
@@ -520,20 +539,67 @@ function addExtracted() {
   save(); render(); closeModal('upload-modal');
 }
 
+function toBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+function openSettings() {
+  const token = localStorage.getItem('gh_token') || '';
+  document.getElementById('input-token').value = token ? '••••••••' : '';
+  document.getElementById('settings-modal').classList.add('open');
+}
+function saveToken() {
+  const val = document.getElementById('input-token').value.trim();
+  if (val && val !== '••••••••') localStorage.setItem('gh_token', val);
+  closeModal('settings-modal');
+  alert('Token saved.');
+}
+function clearToken() {
+  localStorage.removeItem('gh_token');
+  closeModal('settings-modal');
+  alert('Token cleared. Sync will be pull-only.');
+}
+
 async function syncFromGitHub(type) {
   const file = type === 'school' ? 'school_shifts.json' : 'shifts.json';
   const label = type === 'school' ? 'class' : 'shift';
+  const token = type === 'shifts' ? localStorage.getItem('gh_token') : null;
+
   try {
-    const res = await fetch(`https://HengVichet123.github.io/my-schedule/${file}?t=` + Date.now());
-    if (!res.ok) throw new Error('Not found');
-    const data = await res.json();
-    const existing = new Set(entries.map(e => e.id));
-    let added = 0;
-    data.forEach(s => { if (!existing.has(s.id)) { entries.push(s); added++; } });
-    save(); render();
-    alert(`Synced! Added ${added} ${label} entries.`);
-  } catch {
-    alert('Sync failed. Run sync.sh on your computer first.');
+    if (token) {
+      // Bidirectional: fetch via API (gets sha + content), merge, push back
+      const apiUrl = `https://api.github.com/repos/HengVichet123/my-schedule/contents/${file}`;
+      const res = await fetch(apiUrl, { headers: { Authorization: `token ${token}` } });
+      if (!res.ok) throw new Error('API error');
+      const fileData = await res.json();
+      const ghEntries = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, '')))));
+
+      // Merge: phone wins on conflict, add GitHub-only entries
+      const phoneMap = new Map(entries.map(e => [e.id, e]));
+      ghEntries.forEach(e => { if (!phoneMap.has(e.id)) entries.push(e); });
+      save(); render();
+
+      // Push merged data back to GitHub
+      const merged = JSON.parse(localStorage.getItem('schedule') || '[]');
+      await fetch(apiUrl, {
+        method: 'PUT',
+        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Sync from phone', content: toBase64(JSON.stringify(merged, null, 2)), sha: fileData.sha })
+      });
+      alert(`Synced both ways! Phone edits pushed to GitHub.`);
+    } else {
+      // Pull only
+      const res = await fetch(`https://HengVichet123.github.io/my-schedule/${file}?t=` + Date.now());
+      if (!res.ok) throw new Error('Not found');
+      const data = await res.json();
+      const existing = new Set(entries.map(e => e.id));
+      let added = 0;
+      data.forEach(s => { if (!existing.has(s.id)) { entries.push(s); added++; } });
+      save(); render();
+      alert(`Pulled ${added} new ${label} entries. Set a GitHub token in ⚙️ to sync both ways.`);
+    }
+  } catch (err) {
+    alert('Sync failed: ' + err.message);
   }
 }
 
